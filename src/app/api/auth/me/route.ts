@@ -3,21 +3,70 @@ import { cookies } from 'next/headers'
 
 const SESSION_COOKIE = 'acadbook-session'
 
-export async function GET(request: Request) {
-  // Tentar ler o cookie do header diretamente
-  const cookieHeader = request.headers.get('cookie') ?? ''
-  const cookies = Object.fromEntries(
-    cookieHeader.split(';').map((c) => {
-      const [k, ...v] = c.trim().split('=')
-      return [k, v.join('=')]
-    }),
-  )
-  const jwt = cookies[SESSION_COOKIE]
+import { Account, Client } from 'node-appwrite'
+import { cookies, headers } from 'next/headers'
+import { type NextRequest } from 'next/server'
 
-  console.log(`[auth/me] cookie header: ${!!cookieHeader}, jwt found: ${!!jwt}, length: ${jwt?.length}`)
+const SESSION_COOKIE = 'acadbook-session'
+
+export async function GET(request: NextRequest) {
+  // Tentar TODAS as formas de ler o cookie
+  const cookieHeader = request.headers.get('cookie') ?? ''
+  const allHeaders = Object.fromEntries(request.headers.entries())
+  const headerKeys = Object.keys(allHeaders).join(',')
+
+  console.log(`[auth/me] cookieHeader len: ${cookieHeader.length}, all header keys: ${headerKeys}`)
+
+  let jwt: string | undefined
+
+  // 1. Tentar do request headers
+  if (cookieHeader) {
+    const parsed = Object.fromEntries(
+      cookieHeader.split(';').map((c) => {
+        const [k, ...v] = c.trim().split('=')
+        return [k, v.join('=')]
+      }),
+    )
+    jwt = parsed[SESSION_COOKIE]
+  }
+
+  // 2. Tentar do cookies() do Next.js
+  if (!jwt) {
+    try {
+      const cookieStore = await cookies()
+      jwt = cookieStore.get(SESSION_COOKIE)?.value
+    } catch (e) {
+      console.log(`[auth/me] cookies() error: ${e}`)
+    }
+  }
+
+  // 3. Tentar do headers() do Next.js
+  if (!jwt) {
+    try {
+      const h = await headers()
+      const cookieFromHeaders = h.get('cookie')
+      if (cookieFromHeaders) {
+        const parsed = Object.fromEntries(
+          cookieFromHeaders.split(';').map((c) => {
+            const [k, ...v] = c.trim().split('=')
+            return [k, v.join('=')]
+          }),
+        )
+        jwt = parsed[SESSION_COOKIE]
+      }
+    } catch (e) {
+      console.log(`[auth/me] headers() error: ${e}`)
+    }
+  }
+
+  console.log(`[auth/me] jwt found: ${!!jwt}, length: ${jwt?.length}`)
 
   if (!jwt) {
-    return Response.json({ user: null, reason: 'no_cookie' }, { status: 401 })
+    return Response.json({
+      user: null,
+      reason: 'no_cookie',
+      debug: { cookieHeaderLen: cookieHeader.length, headerKeys }
+    }, { status: 401 })
   }
 
   try {
