@@ -3,11 +3,18 @@ import { cookies } from 'next/headers'
 
 const SESSION_COOKIE = 'acadbook-session'
 
-export async function GET() {
-  const cookieStore = await cookies()
-  const jwt = cookieStore.get(SESSION_COOKIE)?.value
+export async function GET(request: Request) {
+  // Tentar ler o cookie do header diretamente
+  const cookieHeader = request.headers.get('cookie') ?? ''
+  const cookies = Object.fromEntries(
+    cookieHeader.split(';').map((c) => {
+      const [k, ...v] = c.trim().split('=')
+      return [k, v.join('=')]
+    }),
+  )
+  const jwt = cookies[SESSION_COOKIE]
 
-  console.log(`[auth/me] cookie present: ${!!jwt}, length: ${jwt?.length}`)
+  console.log(`[auth/me] cookie header: ${!!cookieHeader}, jwt found: ${!!jwt}, length: ${jwt?.length}`)
 
   if (!jwt) {
     return Response.json({ user: null, reason: 'no_cookie' }, { status: 401 })
@@ -27,10 +34,7 @@ export async function GET() {
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'unknown error'
-    const stack = err instanceof Error ? err.stack?.substring(0, 500) : ''
-    console.log(`[auth/me] ERROR: ${message} | JWT: ${jwt?.substring(0, 20)}... | STACK: ${stack}`)
-    const cookieStore2 = await cookies()
-    cookieStore2.delete(SESSION_COOKIE)
+    console.log(`[auth/me] ERROR: ${message} | JWT: ${jwt?.substring(0, 20)}...`)
     return Response.json({ user: null, error: message }, { status: 401 })
   }
 }
