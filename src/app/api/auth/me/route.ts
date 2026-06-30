@@ -5,9 +5,9 @@ const SESSION_COOKIE = 'acadbook-session'
 
 export async function GET() {
   const cookieStore = await cookies()
-  const sessionToken = cookieStore.get(SESSION_COOKIE)?.value
+  const jwt = cookieStore.get(SESSION_COOKIE)?.value
 
-  if (!sessionToken) {
+  if (!jwt) {
     return Response.json({ user: null }, { status: 401 })
   }
 
@@ -15,7 +15,7 @@ export async function GET() {
     const client = new Client()
       .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
       .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID!)
-      .setSession(sessionToken)
+      .setJWT(jwt)
 
     const account = new Account(client)
     const user = await account.get()

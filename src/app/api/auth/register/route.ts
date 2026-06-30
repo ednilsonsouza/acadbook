@@ -1,4 +1,4 @@
-import { Account, Client, ID } from 'node-appwrite'
+import { Account, Client, Users, ID } from 'node-appwrite'
 import { cookies } from 'next/headers'
 import { z } from 'zod'
 
@@ -32,17 +32,22 @@ export async function POST(request: Request) {
   const { name, email, password } = parsed.data
 
   try {
-    const client = new Client()
+    // 1. Criar usuário via admin API
+    const adminClient = new Client()
       .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
       .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID!)
       .setKey(process.env.APPWRITE_API_KEY!)
 
-    const account = new Account(client)
+    const users = new Users(adminClient)
+    const newUser = await users.create(
+      ID.unique(),
+      email,
+      undefined,
+      password,
+      name,
+    )
 
-    // Criar conta
-    const newUser = await account.create(ID.unique(), email, password, name)
-
-    // Criar sessão
+    // 2. Criar sessão para validar e obter JWT
     const sessionClient = new Client()
       .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
       .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID!)
@@ -50,8 +55,13 @@ export async function POST(request: Request) {
     const sessionAccount = new Account(sessionClient)
     const session = await sessionAccount.createEmailPasswordSession(email, password)
 
+    // 3. Criar JWT para o usuário
+    const jwtResponse = await users.createJWT(session.userId)
+    const jwt = jwtResponse.jwt
+
+    // 4. Guardar JWT no cookie
     const cookieStore = await cookies()
-    cookieStore.set(SESSION_COOKIE, session.secret, {
+    cookieStore.set(SESSION_COOKIE, jwt, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',

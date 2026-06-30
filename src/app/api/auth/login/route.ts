@@ -1,4 +1,4 @@
-import { Account, Client, ID } from 'node-appwrite'
+import { Account, Client, Users } from 'node-appwrite'
 import { cookies } from 'next/headers'
 import { z } from 'zod'
 
@@ -28,6 +28,7 @@ export async function POST(request: Request) {
   const { email, password } = parsed.data
 
   try {
+    // 1. Criar sessão para validar credenciais e obter userId
     const client = new Client()
       .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
       .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID!)
@@ -35,22 +36,27 @@ export async function POST(request: Request) {
     const account = new Account(client)
     const session = await account.createEmailPasswordSession(email, password)
 
-    // Buscar dados do usuário com o token da sessão
-    const sessionClient = new Client()
+    // 2. Usar admin client para criar um JWT para o usuário
+    const adminClient = new Client()
       .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
       .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID!)
-      .setSession(session.secret)
+      .setKey(process.env.APPWRITE_API_KEY!)
 
-    const sessionAccount = new Account(sessionClient)
-    const user = await sessionAccount.get()
+    const users = new Users(adminClient)
+    const jwtResponse = await users.createJWT(session.userId)
+    const jwt = jwtResponse.jwt
 
+    // 3. Buscar dados do usuário
+    const user = await users.get(session.userId)
+
+    // 4. Guardar JWT no cookie httpOnly
     const cookieStore = await cookies()
-    cookieStore.set(SESSION_COOKIE, session.secret, {
+    cookieStore.set(SESSION_COOKIE, jwt, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24 * 30,
+      maxAge: 60 * 60 * 24 * 30, // 30 dias
     })
 
     return Response.json({

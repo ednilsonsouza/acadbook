@@ -5,7 +5,7 @@ import { createBook, listBooksByUser } from '@/lib/appwrite/databases'
 
 const SESSION_COOKIE = 'acadbook-session'
 
-async function getSessionUser() {
+async function getAuthUser() {
   const cookieStore = await cookies()
   const token = cookieStore.get(SESSION_COOKIE)?.value
   if (!token) return null
@@ -13,7 +13,7 @@ async function getSessionUser() {
     const client = new Client()
       .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
       .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID!)
-      .setSession(token)
+      .setJWT(token)
     const account = new Account(client)
     return await account.get()
   } catch {
@@ -22,7 +22,7 @@ async function getSessionUser() {
 }
 
 export async function GET() {
-  const user = await getSessionUser()
+  const user = await getAuthUser()
   if (!user) return Response.json({ error: 'Não autenticado' }, { status: 401 })
 
   try {
@@ -34,7 +34,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const user = await getSessionUser()
+  const user = await getAuthUser()
   if (!user) return Response.json({ error: 'Não autenticado' }, { status: 401 })
 
   let body: unknown
