@@ -1,0 +1,16 @@
+﻿{
+    "version":  "1.0.0",
+    "name":  "export-pdf",
+    "scripts":  {
+                    "build":  "tsc"
+                },
+    "devDependencies":  {
+                            "@types/node":  "^20.0.0",
+                            "typescript":  "^5.0.0"
+                        },
+    "dependencies":  {
+                         "playwright":  "^1.40.0",
+                         "node-appwrite":  "^26.0.0"
+                     },
+    "main":  "src/main.ts"
+}

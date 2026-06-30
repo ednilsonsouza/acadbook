@@ -1,0 +1,15 @@
+﻿{
+    "version":  "1.0.0",
+    "name":  "assemble-book",
+    "scripts":  {
+                    "build":  "tsc"
+                },
+    "devDependencies":  {
+                            "@types/node":  "^20.0.0",
+                            "typescript":  "^5.0.0"
+                        },
+    "dependencies":  {
+                         "node-appwrite":  "^26.0.0"
+                     },
+    "main":  "src/main.ts"
+}

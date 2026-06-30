@@ -1,0 +1,31 @@
+import { Account, Client } from 'node-appwrite'
+import { cookies } from 'next/headers'
+
+const SESSION_COOKIE = 'acadbook-session'
+
+export async function GET() {
+  const cookieStore = await cookies()
+  const sessionToken = cookieStore.get(SESSION_COOKIE)?.value
+
+  if (!sessionToken) {
+    return Response.json({ user: null }, { status: 401 })
+  }
+
+  try {
+    const client = new Client()
+      .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
+      .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID!)
+      .setSession(sessionToken)
+
+    const account = new Account(client)
+    const user = await account.get()
+
+    return Response.json({
+      user: { $id: user.$id, name: user.name, email: user.email },
+    })
+  } catch {
+    const cookieStore2 = await cookies()
+    cookieStore2.delete(SESSION_COOKIE)
+    return Response.json({ user: null }, { status: 401 })
+  }
+}
