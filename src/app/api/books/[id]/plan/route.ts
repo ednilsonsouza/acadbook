@@ -1,9 +1,10 @@
 import { type NextRequest } from 'next/server'
 import { z } from 'zod'
-import { getBook, getLatestBookPlan, updateBookPlan } from '@/lib/appwrite/databases'
-import { FUNCTIONS } from '@/lib/appwrite/collections'
-import { getAuthUser, createAdminClient } from '@/lib/appwrite/api-auth'
+import { getBook, getLatestBookPlan, updateBookPlan, updateBookStatus, createBookPlan, logGeneration } from '@/lib/appwrite/databases'
+import { getAuthUser } from '@/lib/appwrite/api-auth'
 import { planChapterSchema } from '@/lib/validation/plan-schema'
+import { generateBookPlan } from '@/lib/minimax/generate-text'
+import type { PlanChapter } from '@/types/plan'
 
 export async function GET(
   request: NextRequest,
@@ -42,22 +43,53 @@ export async function POST(
   }
 
   try {
-    const { functions } = createAdminClient()
-    await functions.createExecution(
-      FUNCTIONS.GENERATE_PLAN,
-      JSON.stringify({
-        bookId: id,
-        title: book.title,
-        description: book.description,
-        authors: book.authors,
-        chaptersCount: book.chaptersCount,
-        sectionsPerChapter: book.sectionsPerChapter,
-      }),
-      true,
-    )
-    return Response.json({ success: true, message: 'Geração do plano iniciada' })
-  } catch {
-    return Response.json({ error: 'Falha ao iniciar geração do plano' }, { status: 500 })
+    // Atualizar status para planning
+    await updateBookStatus(id, 'planning')
+
+    // Gerar plano via MiniMax diretamente
+    const generated = await generateBookPlan({
+      title: book.title,
+      description: book.description,
+      authors: book.authors,
+      chaptersCount: book.chaptersCount,
+      sectionsPerChapter: book.sectionsPerChapter,
+    })
+
+    // Verificar versão do plano
+    const existingPlan = await getLatestBookPlan(id)
+    const version = existingPlan ? existingPlan.version + 1 : 1
+
+    // Salvar plano
+    const plan = await createBookPlan({
+      bookId: id,
+      version,
+      chapters: generated.chapters as PlanChapter[],
+    })
+
+    // Atualizar status do livro
+    await updateBookStatus(id, 'awaiting_plan_approval')
+
+    // Log
+    await logGeneration({
+      bookId: id,
+      agent: 'generate-book-plan',
+      step: 'minimax_plan',
+      status: 'success',
+      message: `Plano v${version} gerado com ${generated.chapters.length} capítulos`,
+    })
+
+    return Response.json({ success: true, planId: plan.$id, version })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Erro desconhecido'
+    await updateBookStatus(id, 'failed', { errorMessage: message.slice(0, 500) })
+    await logGeneration({
+      bookId: id,
+      agent: 'generate-book-plan',
+      step: 'minimax_plan',
+      status: 'error',
+      message: message.slice(0, 500),
+    })
+    return Response.json({ error: 'Falha ao gerar plano', detail: message }, { status: 500 })
   }
 }
 

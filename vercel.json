@@ -1,0 +1,19 @@
+{
+  "functions": {
+    "src/app/api/books/[id]/plan/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/books/[id]/chapters/[chapterId]/research/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/books/[id]/chapters/[chapterId]/generate/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/books/[id]/assemble/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/books/[id]/export/route.ts": {
+      "maxDuration": 60
+    }
+  }
+}
