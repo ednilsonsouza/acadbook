@@ -1,33 +1,19 @@
-import { cookies } from 'next/headers'
-import { Account, Client, ID } from 'node-appwrite'
+import { type NextRequest } from 'next/server'
+import { ID } from 'node-appwrite'
 import { getBook } from '@/lib/appwrite/databases'
 import { FUNCTIONS, APPWRITE_DATABASE_ID, COLLECTIONS } from '@/lib/appwrite/collections'
-
-const SESSION_COOKIE = 'acadbook-session'
-
-async function getAuthUser() {
-  const cookieStore = await cookies()
-  const token = cookieStore.get(SESSION_COOKIE)?.value
-  if (!token) return null
-  try {
-    const client = new Client()
-      .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
-      .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID!)
-      .setJWT(token)
-    return await new Account(client).get()
-  } catch { return null }
-}
+import { getAuthUser, createAdminClient } from '@/lib/appwrite/api-auth'
 
 export async function POST(
-  _req: Request,
+  request: NextRequest,
   ctx: RouteContext<'/api/books/[id]/export'>,
 ) {
   const { id } = await ctx.params
-  const user = await getAuthUser()
+  const user = await getAuthUser(request)
   if (!user) return Response.json({ error: 'Não autenticado' }, { status: 401 })
 
   const book = await getBook(id)
-  if (!book || book.createdBy !== user.$id) {
+  if (!book || book.createdBy !== user.userId) {
     return Response.json({ error: 'Não encontrado' }, { status: 404 })
   }
 
@@ -38,11 +24,9 @@ export async function POST(
     )
   }
 
-  const { createAdminClient } = await import('@/lib/appwrite/server')
   const { databases, functions } = createAdminClient()
 
   try {
-    // Criar registro de exportação
     const exportDoc = await databases.createDocument(
       APPWRITE_DATABASE_ID,
       COLLECTIONS.EXPORTS,

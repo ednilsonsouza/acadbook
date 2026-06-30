@@ -1,32 +1,17 @@
-import { cookies } from 'next/headers'
-import { Account, Client } from 'node-appwrite'
+import { type NextRequest } from 'next/server'
 import { getBook, getChaptersByBook } from '@/lib/appwrite/databases'
-
-const SESSION_COOKIE = 'acadbook-session'
-
-async function getAuthUser() {
-  const cookieStore = await cookies()
-  const token = cookieStore.get(SESSION_COOKIE)?.value
-  if (!token) return null
-  try {
-    const client = new Client()
-      .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
-      .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID!)
-      .setJWT(token)
-    return await new Account(client).get()
-  } catch { return null }
-}
+import { getAuthUser } from '@/lib/appwrite/api-auth'
 
 export async function GET(
-  _req: Request,
+  request: NextRequest,
   ctx: RouteContext<'/api/books/[id]/chapters'>,
 ) {
   const { id } = await ctx.params
-  const user = await getAuthUser()
+  const user = await getAuthUser(request)
   if (!user) return Response.json({ error: 'Não autenticado' }, { status: 401 })
 
   const book = await getBook(id)
-  if (!book || book.createdBy !== user.$id) {
+  if (!book || book.createdBy !== user.userId) {
     return Response.json({ error: 'Não encontrado' }, { status: 404 })
   }
 

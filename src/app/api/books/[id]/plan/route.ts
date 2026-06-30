@@ -1,34 +1,20 @@
-import { cookies } from 'next/headers'
-import { Account, Client, Functions } from 'node-appwrite'
-import { getBook, getLatestBookPlan, updateBookStatus } from '@/lib/appwrite/databases'
+import { type NextRequest } from 'next/server'
+import { z } from 'zod'
+import { getBook, getLatestBookPlan, updateBookPlan } from '@/lib/appwrite/databases'
 import { FUNCTIONS } from '@/lib/appwrite/collections'
+import { getAuthUser, createAdminClient } from '@/lib/appwrite/api-auth'
+import { planChapterSchema } from '@/lib/validation/plan-schema'
 
-const SESSION_COOKIE = 'acadbook-session'
-
-async function getAuthUser() {
-  const cookieStore = await cookies()
-  const token = cookieStore.get(SESSION_COOKIE)?.value
-  if (!token) return null
-  try {
-    const client = new Client()
-      .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
-      .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID!)
-      .setJWT(token)
-    return await new Account(client).get()
-  } catch { return null }
-}
-
-// GET /api/books/[id]/plan — retorna o plano atual
 export async function GET(
-  _req: Request,
+  request: NextRequest,
   ctx: RouteContext<'/api/books/[id]/plan'>,
 ) {
   const { id } = await ctx.params
-  const user = await getAuthUser()
+  const user = await getAuthUser(request)
   if (!user) return Response.json({ error: 'Não autenticado' }, { status: 401 })
 
   const book = await getBook(id)
-  if (!book || book.createdBy !== user.$id) {
+  if (!book || book.createdBy !== user.userId) {
     return Response.json({ error: 'Não encontrado' }, { status: 404 })
   }
 
@@ -36,18 +22,17 @@ export async function GET(
   return Response.json({ plan })
 }
 
-// POST /api/books/[id]/plan — dispara geração do plano
 export async function POST(
-  _req: Request,
+  request: NextRequest,
   ctx: RouteContext<'/api/books/[id]/plan'>,
 ) {
   const { id } = await ctx.params
-  const user = await getAuthUser()
+  const user = await getAuthUser(request)
   if (!user) return Response.json({ error: 'Não autenticado' }, { status: 401 })
 
   const book = await getBook(id)
   if (!book) return Response.json({ error: 'Livro não encontrado' }, { status: 404 })
-  if (book.createdBy !== user.$id) return Response.json({ error: 'Acesso negado' }, { status: 403 })
+  if (book.createdBy !== user.userId) return Response.json({ error: 'Acesso negado' }, { status: 403 })
 
   if (!['draft', 'failed', 'awaiting_plan_approval'].includes(book.status)) {
     return Response.json(
@@ -57,9 +42,7 @@ export async function POST(
   }
 
   try {
-    const { createAdminClient } = await import('@/lib/appwrite/server')
     const { functions } = createAdminClient()
-
     await functions.createExecution(
       FUNCTIONS.GENERATE_PLAN,
       JSON.stringify({
@@ -70,26 +53,24 @@ export async function POST(
         chaptersCount: book.chaptersCount,
         sectionsPerChapter: book.sectionsPerChapter,
       }),
-      true, // async
+      true,
     )
-
     return Response.json({ success: true, message: 'Geração do plano iniciada' })
   } catch {
     return Response.json({ error: 'Falha ao iniciar geração do plano' }, { status: 500 })
   }
 }
 
-// PATCH /api/books/[id]/plan — atualiza capítulos do plano (edição pelo autor)
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   ctx: RouteContext<'/api/books/[id]/plan'>,
 ) {
   const { id } = await ctx.params
-  const user = await getAuthUser()
+  const user = await getAuthUser(request)
   if (!user) return Response.json({ error: 'Não autenticado' }, { status: 401 })
 
   const book = await getBook(id)
-  if (!book || book.createdBy !== user.$id) {
+  if (!book || book.createdBy !== user.userId) {
     return Response.json({ error: 'Não encontrado' }, { status: 404 })
   }
 
@@ -99,16 +80,12 @@ export async function PATCH(
   let body: { chapters?: unknown } = {}
   try { body = await request.json() } catch { /* vazio */ }
 
+  const chaptersResult = z.array(planChapterSchema).safeParse(body.chapters)
+  if (!chaptersResult.success) {
+    return Response.json({ error: 'Estrutura de capítulos inválida' }, { status: 400 })
+  }
+
   try {
-    const { updateBookPlan } = await import('@/lib/appwrite/databases')
-    const { planChapterSchema } = await import('@/lib/validation/plan-schema')
-    const { z } = await import('zod')
-
-    const chaptersResult = z.array(planChapterSchema).safeParse(body.chapters)
-    if (!chaptersResult.success) {
-      return Response.json({ error: 'Estrutura de capítulos inválida' }, { status: 400 })
-    }
-
     await updateBookPlan(plan.$id, { status: 'edited', chapters: chaptersResult.data })
     return Response.json({ success: true })
   } catch {

@@ -1,54 +1,36 @@
-import { cookies } from 'next/headers'
-import { Account, Client } from 'node-appwrite'
-import { getBook, updateBookStatus } from '@/lib/appwrite/databases'
-
-const SESSION_COOKIE = 'acadbook-session'
-
-async function getAuthUser() {
-  const cookieStore = await cookies()
-  const token = cookieStore.get(SESSION_COOKIE)?.value
-  if (!token) return null
-  try {
-    const client = new Client()
-      .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
-      .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID!)
-      .setJWT(token)
-    return await new Account(client).get()
-  } catch {
-    return null
-  }
-}
+import { type NextRequest } from 'next/server'
+import { getBook } from '@/lib/appwrite/databases'
+import { getAuthUser, createAdminClient } from '@/lib/appwrite/api-auth'
+import { APPWRITE_DATABASE_ID, COLLECTIONS } from '@/lib/appwrite/collections'
 
 export async function GET(
-  _req: Request,
+  request: NextRequest,
   ctx: RouteContext<'/api/books/[id]'>,
 ) {
   const { id } = await ctx.params
-  const user = await getAuthUser()
+  const user = await getAuthUser(request)
   if (!user) return Response.json({ error: 'Não autenticado' }, { status: 401 })
 
   const book = await getBook(id)
   if (!book) return Response.json({ error: 'Livro não encontrado' }, { status: 404 })
-  if (book.createdBy !== user.$id) return Response.json({ error: 'Acesso negado' }, { status: 403 })
+  if (book.createdBy !== user.userId) return Response.json({ error: 'Acesso negado' }, { status: 403 })
 
   return Response.json({ book })
 }
 
 export async function DELETE(
-  _req: Request,
+  request: NextRequest,
   ctx: RouteContext<'/api/books/[id]'>,
 ) {
   const { id } = await ctx.params
-  const user = await getAuthUser()
+  const user = await getAuthUser(request)
   if (!user) return Response.json({ error: 'Não autenticado' }, { status: 401 })
 
   const book = await getBook(id)
   if (!book) return Response.json({ error: 'Livro não encontrado' }, { status: 404 })
-  if (book.createdBy !== user.$id) return Response.json({ error: 'Acesso negado' }, { status: 403 })
+  if (book.createdBy !== user.userId) return Response.json({ error: 'Acesso negado' }, { status: 403 })
 
   try {
-    const { createAdminClient } = await import('@/lib/appwrite/server')
-    const { APPWRITE_DATABASE_ID, COLLECTIONS } = await import('@/lib/appwrite/collections')
     const { databases } = createAdminClient()
     await databases.deleteDocument(APPWRITE_DATABASE_ID, COLLECTIONS.BOOKS, id)
     return Response.json({ success: true })
