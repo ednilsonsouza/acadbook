@@ -25,9 +25,10 @@ export async function GET() {
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'unknown error'
-    console.error('[auth/me] Error:', message, '| JWT prefix:', jwt?.substring(0, 20))
+    const stack = err instanceof Error ? err.stack?.substring(0, 500) : ''
+    console.log(`[auth/me] ERROR: ${message} | JWT: ${jwt?.substring(0, 20)}... | STACK: ${stack}`)
     const cookieStore2 = await cookies()
     cookieStore2.delete(SESSION_COOKIE)
-    return Response.json({ user: null, detail: message }, { status: 401 })
+    return Response.json({ user: null, error: message }, { status: 401 })
   }
 }
