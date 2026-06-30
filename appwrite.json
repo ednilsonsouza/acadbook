@@ -1,0 +1,47 @@
+{
+  "projectId": "6a432a3e0035999f54b2",
+  "projectName": "acadbook",
+  "endpoint": "https://appwrite-appwrite.yyg0pb.easypanel.host/v1",
+  "functions": [
+    {
+      "$id": "generate-book-plan",
+      "name": "Generate Book Plan",
+      "runtime": "node-20",
+      "entrypoint": "dist/main.js",
+      "path": "appwrite/functions/generate-book-plan",
+      "commands": "npm install && npm run build"
+    },
+    {
+      "$id": "research-chapter",
+      "name": "Research Chapter",
+      "runtime": "node-20",
+      "entrypoint": "dist/main.js",
+      "path": "appwrite/functions/research-chapter",
+      "commands": "npm install && npm run build"
+    },
+    {
+      "$id": "generate-chapter",
+      "name": "Generate Chapter",
+      "runtime": "node-20",
+      "entrypoint": "dist/main.js",
+      "path": "appwrite/functions/generate-chapter",
+      "commands": "npm install && npm run build"
+    },
+    {
+      "$id": "assemble-book",
+      "name": "Assemble Book",
+      "runtime": "node-20",
+      "entrypoint": "dist/main.js",
+      "path": "appwrite/functions/assemble-book",
+      "commands": "npm install && npm run build"
+    },
+    {
+      "$id": "retry-generation",
+      "name": "Retry Generation",
+      "runtime": "node-20",
+      "entrypoint": "dist/main.js",
+      "path": "appwrite/functions/retry-generation",
+      "commands": "npm install && npm run build"
+    }
+  ]
+}
