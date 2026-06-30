@@ -1,4 +1,4 @@
-import { Client, Databases, Query, ID } from 'node-appwrite'
+import { Client, Databases, Storage, Query, ID } from 'node-appwrite'
 
 /**
  * Appwrite Function: assemble-book
@@ -18,6 +18,7 @@ const COLL_CHAPTERS = process.env.APPWRITE_COLLECTION_CHAPTERS ?? 'chapters'
 const COLL_SOURCES = process.env.APPWRITE_COLLECTION_SOURCES ?? 'sources'
 const COLL_REFERENCES = process.env.APPWRITE_COLLECTION_REFERENCES ?? 'references'
 const COLL_LOGS = process.env.APPWRITE_COLLECTION_GENERATION_LOGS ?? 'generation_logs'
+const BUCKET_ID = process.env.APPWRITE_STORAGE_BUCKET_ID ?? 'book-exports'
 const MINIMAX_API_URL = process.env.MINIMAX_API_URL ?? 'https://api.minimaxi.com/v1'
 const MINIMAX_MODEL = process.env.MINIMAX_MODEL ?? 'MiniMax-Text-01'
 
@@ -237,10 +238,21 @@ Capítulos: ${chapterTitles.map((t, i) => `${i + 1}. ${t} — ${planChapters[i]?
 </body>
 </html>`
 
-    // Salvar HTML no livro (campo assembledHtml — precisa existir na collection)
+    // Salvar HTML no Storage (nao na collection — excede limite de 16KB)
+    const storage = new Storage(client)
+    const safeBuf = new ArrayBuffer(fullHtml.length)
+    const bytes = new Uint8Array(safeBuf)
+    for (let i = 0; i < fullHtml.length; i++) {
+      bytes[i] = fullHtml.charCodeAt(i) & 0xFF
+    }
+    const blob = new Blob([safeBuf], { type: 'text/html' })
+    const file = new File([blob], `${bookId}-assembled.html`, { type: 'text/html' })
+    const uploaded = await storage.createFile(BUCKET_ID, ID.unique(), file)
+    log(`HTML salvo no Storage: ${uploaded.$id} (${fullHtml.length} chars)`)
+
     await databases.updateDocument(DB_ID, COLL_BOOKS, bookId, {
       status: 'exporting_pdf',
-      assembledHtml: truncate(fullHtml, 65535),
+      assembledHtmlFileId: uploaded.$id,
     })
 
     await databases.createDocument(DB_ID, COLL_LOGS, ID.unique(), {

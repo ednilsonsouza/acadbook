@@ -118,10 +118,15 @@ export default async ({ req, res, log, error }: any) => {
     log(`Exportando PDF para livro ${bookId}`)
 
     const bookDoc = await databases.getDocument(DB_ID, COLL_BOOKS, bookId)
-    const html = bookDoc.assembledHtml as string
+    const htmlFileId = bookDoc.assembledHtmlFileId as string
     const templateId = (bookDoc.templateId as string) ?? 'academic-classic'
 
-    if (!html) throw new Error('HTML do livro não encontrado. Execute a montagem primeiro.')
+    if (!htmlFileId) throw new Error('HTML do livro não encontrado. Execute a montagem primeiro.')
+
+    // Baixar HTML do Storage
+    const htmlResult = await storageClient.getFileDownload(BUCKET_ID, htmlFileId)
+    const html = Buffer.from(htmlResult).toString('utf-8')
+    log(`HTML baixado: ${html.length} chars`)
 
     const styles = buildPdfStyles(templateId)
     const fullHtml = html.replace('</head>', `<style>${styles}</style></head>`)
