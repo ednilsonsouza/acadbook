@@ -7,8 +7,10 @@ export async function GET() {
   const cookieStore = await cookies()
   const jwt = cookieStore.get(SESSION_COOKIE)?.value
 
+  console.log(`[auth/me] cookie present: ${!!jwt}, length: ${jwt?.length}`)
+
   if (!jwt) {
-    return Response.json({ user: null }, { status: 401 })
+    return Response.json({ user: null, reason: 'no_cookie' }, { status: 401 })
   }
 
   try {
