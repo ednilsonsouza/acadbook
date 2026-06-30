@@ -23,9 +23,11 @@ export async function GET() {
     return Response.json({
       user: { $id: user.$id, name: user.name, email: user.email },
     })
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown error'
+    console.error('[auth/me] Error:', message, '| JWT prefix:', jwt?.substring(0, 20))
     const cookieStore2 = await cookies()
     cookieStore2.delete(SESSION_COOKIE)
-    return Response.json({ user: null }, { status: 401 })
+    return Response.json({ user: null, detail: message }, { status: 401 })
   }
 }
