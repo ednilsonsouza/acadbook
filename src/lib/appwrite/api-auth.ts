@@ -1,4 +1,5 @@
 import { type NextRequest } from 'next/server'
+import { cookies } from 'next/headers'
 import { Account, Client, Databases, Functions, Users } from 'node-appwrite'
 
 const SESSION_COOKIE = 'acadbook-session'
@@ -10,25 +11,43 @@ export interface AuthResult {
   jwt: string
 }
 
-function readJwtFromRequest(request: NextRequest): string | null {
-  const cookieHeader = request.headers.get('cookie') ?? ''
-  if (!cookieHeader) return null
+/**
+ * Lê o JWT do cookie usando cookies() do next/headers ( oficial Next.js 16 )
+ * com fallback para request.headers.
+ */
+async function readJwt(request?: NextRequest): Promise<string | null> {
+  // Método 1: cookies() do next/headers (oficial)
+  try {
+    const cookieStore = await cookies()
+    const cookie = cookieStore.get(SESSION_COOKIE)
+    if (cookie?.value) return cookie.value
+  } catch {
+    // ignore — tenta fallback
+  }
 
-  const parsed = Object.fromEntries(
-    cookieHeader.split(';').map((c) => {
-      const [k, ...v] = c.trim().split('=')
-      return [k, v.join('=')]
-    }),
-  )
-  return parsed[SESSION_COOKIE] ?? null
+  // Método 2: request.headers (fallback)
+  if (request) {
+    const cookieHeader = request.headers.get('cookie') ?? ''
+    if (cookieHeader) {
+      const parsed = Object.fromEntries(
+        cookieHeader.split(';').map((c) => {
+          const [k, ...v] = c.trim().split('=')
+          return [k, v.join('=')]
+        }),
+      )
+      if (parsed[SESSION_COOKIE]) return parsed[SESSION_COOKIE]
+    }
+  }
+
+  return null
 }
 
 /**
  * Extrai e valida o JWT do cookie da requisição.
  * Retorna null se nao houver sessao valida.
  */
-export async function getAuthUser(request: NextRequest): Promise<AuthResult | null> {
-  const jwt = readJwtFromRequest(request)
+export async function getAuthUser(request?: NextRequest): Promise<AuthResult | null> {
+  const jwt = await readJwt(request)
   if (!jwt) return null
 
   try {
@@ -52,7 +71,6 @@ export async function getAuthUser(request: NextRequest): Promise<AuthResult | nu
 
 /**
  * Helper para criar um admin client com API Key.
- * Retorna instancias separadas de Databases, Functions e Users.
  */
 export function createAdminClient() {
   const client = new Client()

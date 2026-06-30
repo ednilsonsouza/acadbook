@@ -36,7 +36,7 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/auth/me')
+    fetch('/api/auth/me', { credentials: 'same-origin' })
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { user: AuthUser } | null) => setUser(data?.user ?? null))
       .catch(() => setUser(null))

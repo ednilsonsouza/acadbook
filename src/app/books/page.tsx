@@ -16,7 +16,7 @@ export default function BooksPage() {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch('/api/books')
+      const res = await fetch('/api/books', { credentials: 'same-origin' })
       if (!res.ok) throw new Error('Falha ao carregar livros')
       const data = await res.json() as { books: Book[] }
       setBooks(data.books)

@@ -79,6 +79,7 @@ function NextActionPanel({ book, onAction }: { book: Book; onAction: () => void 
     try {
       const res = await fetch(url, {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
       })
       if (!res.ok) {
@@ -208,7 +209,7 @@ export default function BookDetailPage({ params }: BookDetailPageProps) {
 
   async function loadBook() {
     try {
-      const res = await fetch(`/api/books/${id}`)
+      const res = await fetch(`/api/books/${id}`, { credentials: 'same-origin' })
       if (res.status === 404) { setError('Livro não encontrado'); return }
       if (!res.ok) throw new Error()
       const data = await res.json() as { book: Book }

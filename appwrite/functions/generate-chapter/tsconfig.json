@@ -1,0 +1,21 @@
+﻿{
+    "include":  [
+                    "src/**/*"
+                ],
+    "exclude":  [
+                    "node_modules",
+                    "dist"
+                ],
+    "compilerOptions":  {
+                            "allowSyntheticDefaultImports":  true,
+                            "outDir":  "./dist",
+                            "resolveJsonModule":  true,
+                            "moduleResolution":  "node",
+                            "strict":  false,
+                            "target":  "ES2022",
+                            "esModuleInterop":  true,
+                            "skipLibCheck":  true,
+                            "module":  "commonjs",
+                            "rootDir":  "./src"
+                        }
+}

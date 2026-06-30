@@ -64,11 +64,9 @@ export async function POST(request: Request) {
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : ''
-    const stack = err instanceof Error ? err.stack?.substring(0, 500) : ''
-    console.log(`[auth/login] ERROR: ${message} | STACK: ${stack}`)
     if (message.includes('401') || message.includes('Invalid credentials')) {
       return Response.json({ error: 'Email ou senha incorretos' }, { status: 401 })
     }
-    return Response.json({ error: 'Falha no login. Tente novamente.', detail: message }, { status: 500 })
+    return Response.json({ error: 'Falha no login. Tente novamente.' }, { status: 500 })
   }
 }
